@@ -7,21 +7,27 @@ final class MaintenanceRepository: ObservableObject {
 
     @Published var records: [UUID: [MaintenanceRecord]] = [:] // keyed by assetId
     @Published var isLoading = false
+    @Published var error: String?
 
     private init() {}
 
     func fetchForAsset(_ assetId: UUID) async {
         isLoading = true
+        error = nil
         do {
+            let userId = try await supabase.requireUserId()
             let result: [MaintenanceRecord] = try await supabase.fetch(
                 from: "maintenance_records",
-                filters: [("asset_id", assetId.uuidString)],
+                filters: [
+                    ("asset_id", assetId.uuidString),
+                    ("user_id", userId.uuidString),
+                ],
                 orderBy: "performed_at",
                 ascending: false
             )
             records[assetId] = result
         } catch {
-            print("MaintenanceRepository error: \(error)")
+            self.error = error.localizedDescription
         }
         isLoading = false
     }
@@ -32,6 +38,11 @@ final class MaintenanceRepository: ObservableObject {
     }
 
     func update(_ record: MaintenanceRecord) async throws {
+        let userId = try await supabase.requireUserId()
+        guard record.userId == userId else {
+            self.error = SupabaseSecurityError.ownershipMismatch.localizedDescription
+            throw SupabaseSecurityError.ownershipMismatch
+        }
         try await supabase.update(table: "maintenance_records", id: record.id, value: record)
         if let index = records[record.assetId]?.firstIndex(where: { $0.id == record.id }) {
             records[record.assetId]?[index] = record
@@ -39,6 +50,19 @@ final class MaintenanceRepository: ObservableObject {
     }
 
     func delete(id: UUID, assetId: UUID) async throws {
+        let userId = try await supabase.requireUserId()
+        if let cached = records[assetId]?.first(where: { $0.id == id }) {
+            guard cached.userId == userId else {
+                self.error = SupabaseSecurityError.ownershipMismatch.localizedDescription
+                throw SupabaseSecurityError.ownershipMismatch
+            }
+        } else {
+            let record: MaintenanceRecord = try await supabase.fetchSingle(from: "maintenance_records", id: id)
+            guard record.userId == userId else {
+                self.error = SupabaseSecurityError.ownershipMismatch.localizedDescription
+                throw SupabaseSecurityError.ownershipMismatch
+            }
+        }
         try await supabase.delete(from: "maintenance_records", id: id)
         records[assetId]?.removeAll { $0.id == id }
     }

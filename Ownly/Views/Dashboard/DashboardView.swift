@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
@@ -105,11 +106,16 @@ struct PortfolioSummaryCard: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text(settings.formatCurrency(valueCents))
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.ownlyTextPrimary)
-                .minimumScaleFactor(0.6)
-                .lineLimit(1)
+            AnimatedCounterText(
+                valueCents: valueCents,
+                currencyCode: nil,
+                settings: settings
+            )
+
+            PriceSparklineView(
+                dataPoints: PriceSparklineView.mockUpwardTrend(),
+                height: 40
+            )
 
             HStack(spacing: 16) {
                 Label("\(assetCount) \(String(localized: "dashboard.assets"))",
@@ -132,7 +138,15 @@ struct PortfolioSummaryCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .ownlyCard()
+        .padding(16)
+        .background(
+            LinearGradient(
+                colors: [Color.ownlyPrimary.opacity(0.08), Color.ownlySecondaryBackground],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

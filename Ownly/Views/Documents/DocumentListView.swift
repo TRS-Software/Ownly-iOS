@@ -11,6 +11,10 @@ struct DocumentListView: View {
     @State private var groupByCategory = false
     @State private var searchText = ""
     @State private var errorMessage: String?
+    @State private var documentToDelete: AssetDocument?
+    @State private var showDeleteConfirmation = false
+    @State private var showToast = false
+    @State private var toastMessage = ""
 
     private var documents: [AssetDocument] {
         var list = repository.documentsForAsset(assetId)
@@ -47,7 +51,7 @@ struct DocumentListView: View {
                                     DocumentCardRow(document: doc)
                                 }
                                 .onDelete { offsets in
-                                    deleteDocuments(offsets, from: docs)
+                                    confirmDeleteDocuments(offsets, from: docs)
                                 }
                             } header: {
                                 categoryHeader(category, count: docs.count)
@@ -57,7 +61,7 @@ struct DocumentListView: View {
                         ForEach(documents) { doc in
                             DocumentCardRow(document: doc)
                         }
-                        .onDelete(perform: deleteFromFlat)
+                        .onDelete(perform: confirmDeleteFromFlat)
                     }
                 }
                 .listStyle(.plain)
@@ -99,10 +103,45 @@ struct DocumentListView: View {
                 )
             }
         }
+        .confirmationDialog(
+            String(localized: "document.delete_confirm"),
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "delete"), role: .destructive) {
+                if let doc = documentToDelete {
+                    Task {
+                        do {
+                            try await repository.delete(id: doc.id, assetId: assetId)
+                            HapticService.success()
+                            toastMessage = String(localized: "document.deleted")
+                            showToast = true
+                        } catch {
+                            HapticService.error()
+                            errorMessage = error.localizedDescription
+                        }
+                        documentToDelete = nil
+                    }
+                }
+            }
+            Button(String(localized: "cancel"), role: .cancel) {
+                documentToDelete = nil
+            }
+        } message: {
+            if let doc = documentToDelete {
+                Text(String(localized: "document.delete_message \(doc.title)"))
+            }
+        }
         .alert(String(localized: "error"), isPresented: .constant(errorMessage != nil)) {
             Button(String(localized: "ok")) { errorMessage = nil }
         } message: {
             if let errorMessage { Text(errorMessage) }
+        }
+        .toast(isPresented: $showToast, message: toastMessage)
+        .onChange(of: showingUpload) { _, isShowing in
+            if !isShowing {
+                Task { await repository.fetchForAsset(assetId) }
+            }
         }
         .onFirstAppear {
             await repository.fetchForAsset(assetId)
@@ -163,28 +202,18 @@ struct DocumentListView: View {
 
     // MARK: - Delete
 
-    private func deleteFromFlat(at offsets: IndexSet) {
-        let docsToDelete = offsets.map { documents[$0] }
-        for doc in docsToDelete {
-            deleteDocument(doc)
-        }
+    private func confirmDeleteFromFlat(at offsets: IndexSet) {
+        guard let firstIndex = offsets.first else { return }
+        documentToDelete = documents[firstIndex]
+        HapticService.warning()
+        showDeleteConfirmation = true
     }
 
-    private func deleteDocuments(_ offsets: IndexSet, from docs: [AssetDocument]) {
-        let docsToDelete = offsets.map { docs[$0] }
-        for doc in docsToDelete {
-            deleteDocument(doc)
-        }
-    }
-
-    private func deleteDocument(_ doc: AssetDocument) {
-        Task {
-            do {
-                try await repository.delete(id: doc.id, assetId: assetId)
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-        }
+    private func confirmDeleteDocuments(_ offsets: IndexSet, from docs: [AssetDocument]) {
+        guard let firstIndex = offsets.first else { return }
+        documentToDelete = docs[firstIndex]
+        HapticService.warning()
+        showDeleteConfirmation = true
     }
 }
 
@@ -426,9 +455,11 @@ struct DocumentUploadView: View {
 
         do {
             try await repository.create(document)
+            HapticService.success()
             onSave()
             dismiss()
         } catch {
+            HapticService.error()
             errorMessage = error.localizedDescription
         }
 

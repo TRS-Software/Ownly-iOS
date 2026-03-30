@@ -643,9 +643,12 @@ struct ScannerView: View {
         )
 
         if success {
+            HapticService.success()
             subscriptionStore.ocrScansUsed += 1
             withAnimation { viewModel.reset() }
             documentTitle = ""
+        } else {
+            HapticService.error()
         }
     }
 }

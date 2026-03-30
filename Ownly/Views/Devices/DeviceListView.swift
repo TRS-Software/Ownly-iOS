@@ -13,6 +13,10 @@ struct DeviceListView: View {
     @State private var searchText = ""
     @State private var selectedCategory: DeviceCategory?
     @State private var errorMessage: String?
+    @State private var deviceToDelete: Device?
+    @State private var showDeleteConfirmation = false
+    @State private var showToast = false
+    @State private var toastMessage = ""
 
     private var devices: [Device] {
         var list = repository.devicesForAsset(assetId)
@@ -69,7 +73,7 @@ struct DeviceListView: View {
                         .listRowBackground(Color.ownlySecondaryBackground)
                         .listRowSeparatorTint(Color.ownlySeparator)
                     }
-                    .onDelete(perform: deleteDevices)
+                    .onDelete(perform: confirmDeleteDevices)
                 }
                 .listStyle(.plain)
                 .refreshable {
@@ -102,10 +106,45 @@ struct DeviceListView: View {
                 )
             }
         }
+        .confirmationDialog(
+            String(localized: "device.delete_confirm"),
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "delete"), role: .destructive) {
+                if let device = deviceToDelete {
+                    Task {
+                        do {
+                            try await repository.delete(id: device.id, assetId: assetId)
+                            HapticService.success()
+                            toastMessage = String(localized: "device.deleted")
+                            showToast = true
+                        } catch {
+                            HapticService.error()
+                            errorMessage = error.localizedDescription
+                        }
+                        deviceToDelete = nil
+                    }
+                }
+            }
+            Button(String(localized: "cancel"), role: .cancel) {
+                deviceToDelete = nil
+            }
+        } message: {
+            if let device = deviceToDelete {
+                Text(String(localized: "device.delete_message \(device.name)"))
+            }
+        }
         .alert(String(localized: "error"), isPresented: .constant(errorMessage != nil)) {
             Button(String(localized: "ok")) { errorMessage = nil }
         } message: {
             if let errorMessage { Text(errorMessage) }
+        }
+        .toast(isPresented: $showToast, message: toastMessage)
+        .onChange(of: showingAddDevice) { _, isShowing in
+            if !isShowing {
+                Task { await repository.fetchForAsset(assetId) }
+            }
         }
         .onFirstAppear {
             await repository.fetchForAsset(assetId)
@@ -145,17 +184,11 @@ struct DeviceListView: View {
 
     // MARK: - Delete
 
-    private func deleteDevices(at offsets: IndexSet) {
-        let devicesToDelete = offsets.map { devices[$0] }
-        for device in devicesToDelete {
-            Task {
-                do {
-                    try await repository.delete(id: device.id, assetId: assetId)
-                } catch {
-                    errorMessage = error.localizedDescription
-                }
-            }
-        }
+    private func confirmDeleteDevices(at offsets: IndexSet) {
+        guard let firstIndex = offsets.first else { return }
+        deviceToDelete = devices[firstIndex]
+        HapticService.warning()
+        showDeleteConfirmation = true
     }
 }
 
@@ -852,9 +885,11 @@ struct DeviceFormView: View {
             } else {
                 try await repository.create(device)
             }
+            HapticService.success()
             onSave()
             dismiss()
         } catch {
+            HapticService.error()
             errorMessage = error.localizedDescription
         }
 

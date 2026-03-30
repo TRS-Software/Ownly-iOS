@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Charts
 
 struct AssetDetailView: View {
     @StateObject private var viewModel: AssetDetailViewModel
@@ -24,6 +25,12 @@ struct AssetDetailView: View {
                 valueCardsSection
                     .padding()
 
+                // Price History Chart (stocks/crypto)
+                if viewModel.asset.assetType.hasLivePrices {
+                    PriceHistoryChartView(asset: viewModel.asset)
+                        .padding()
+                }
+
                 // Tab Navigation
                 tabSection
             }
@@ -41,6 +48,7 @@ struct AssetDetailView: View {
                     }
 
                     Button(role: .destructive) {
+                        HapticService.warning()
                         viewModel.showDeleteConfirmation = true
                     } label: {
                         Label(String(localized: "delete"), systemImage: "trash")
@@ -55,6 +63,11 @@ struct AssetDetailView: View {
                 AssetFormView(editing: viewModel.asset)
             }
         }
+        .onChange(of: showingEdit) { _, isShowing in
+            if !isShowing {
+                Task { await viewModel.loadAll() }
+            }
+        }
         .confirmationDialog(
             String(localized: "asset.delete_confirm"),
             isPresented: $viewModel.showDeleteConfirmation,
@@ -63,7 +76,10 @@ struct AssetDetailView: View {
             Button(String(localized: "delete"), role: .destructive) {
                 Task {
                     if await viewModel.deleteAsset() {
+                        HapticService.success()
                         dismiss()
+                    } else {
+                        HapticService.error()
                     }
                 }
             }

@@ -155,8 +155,11 @@ struct AssetFormView: View {
                     Task {
                         guard let userId = appState.currentUserId.flatMap({ UUID(uuidString: $0) }) else { return }
                         if let _ = await viewModel.submit(userId: userId) {
+                            HapticService.success()
                             engagementStore.trackAssetCreated()
                             dismiss()
+                        } else {
+                            HapticService.error()
                         }
                     }
                 } label: {

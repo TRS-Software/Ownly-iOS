@@ -17,6 +17,10 @@ struct MediaGalleryView: View {
     @State private var showingCamera = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var errorMessage: String?
+    @State private var mediaToDelete: AssetMedia?
+    @State private var showDeleteConfirmation = false
+    @State private var showToast = false
+    @State private var toastMessage = ""
 
     private var allMedia: [AssetMedia] {
         repository.mediaForAsset(assetId)
@@ -118,11 +122,37 @@ struct MediaGalleryView: View {
                 selectedPhotoItem = nil
             }
         }
+        .confirmationDialog(
+            String(localized: "media.delete_confirm"),
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "delete"), role: .destructive) {
+                if let media = mediaToDelete {
+                    Task {
+                        do {
+                            try await repository.delete(id: media.id, assetId: assetId)
+                            HapticService.success()
+                            toastMessage = String(localized: "media.deleted")
+                            showToast = true
+                        } catch {
+                            HapticService.error()
+                            errorMessage = error.localizedDescription
+                        }
+                        mediaToDelete = nil
+                    }
+                }
+            }
+            Button(String(localized: "cancel"), role: .cancel) {
+                mediaToDelete = nil
+            }
+        }
         .alert(String(localized: "error"), isPresented: .constant(errorMessage != nil)) {
             Button(String(localized: "ok")) { errorMessage = nil }
         } message: {
             if let errorMessage { Text(errorMessage) }
         }
+        .toast(isPresented: $showToast, message: toastMessage)
         .onFirstAppear {
             await repository.fetchForAsset(assetId)
         }
@@ -169,7 +199,7 @@ struct MediaGalleryView: View {
                     }
                     .contextMenu {
                         Button(role: .destructive) {
-                            deleteMedia(media)
+                            confirmDeleteMedia(media)
                         } label: {
                             Label(String(localized: "delete"), systemImage: "trash")
                         }
@@ -253,14 +283,10 @@ struct MediaGalleryView: View {
         }
     }
 
-    private func deleteMedia(_ media: AssetMedia) {
-        Task {
-            do {
-                try await repository.delete(id: media.id, assetId: assetId)
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-        }
+    private func confirmDeleteMedia(_ media: AssetMedia) {
+        mediaToDelete = media
+        HapticService.warning()
+        showDeleteConfirmation = true
     }
 }
 

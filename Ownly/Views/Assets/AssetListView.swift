@@ -127,6 +127,11 @@ struct AssetListView: View {
         .refreshable {
             await viewModel.load()
         }
+        .onChange(of: showingNewAsset) { _, isShowing in
+            if !isShowing {
+                Task { await viewModel.load() }
+            }
+        }
         .onFirstAppear {
             await viewModel.load()
         }
