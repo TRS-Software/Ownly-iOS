@@ -63,7 +63,8 @@ struct PaywallView: View {
                 VStack(spacing: 12) {
                     PricingCard(
                         title: String(localized: "paywall.monthly"),
-                        price: "€3,99",
+                        price: priceForPackageType(.monthly, fallback: "€3,99"),
+                        introPrice: introductoryPriceForPackageType(.monthly),
                         period: String(localized: "paywall.per_month"),
                         isSelected: selectedPackage?.packageType == .monthly,
                         badge: nil
@@ -73,7 +74,8 @@ struct PaywallView: View {
 
                     PricingCard(
                         title: String(localized: "paywall.annual"),
-                        price: "€29,99",
+                        price: priceForPackageType(.annual, fallback: "€29,99"),
+                        introPrice: introductoryPriceForPackageType(.annual),
                         period: String(localized: "paywall.per_year"),
                         isSelected: selectedPackage?.packageType == .annual,
                         badge: String(localized: "paywall.save_37")
@@ -83,7 +85,8 @@ struct PaywallView: View {
 
                     PricingCard(
                         title: String(localized: "paywall.lifetime"),
-                        price: "€199,99",
+                        price: priceForPackageType(.lifetime, fallback: "€199,99"),
+                        introPrice: introductoryPriceForPackageType(.lifetime),
                         period: String(localized: "paywall.one_time"),
                         isSelected: selectedPackage?.packageType == .lifetime,
                         badge: nil
@@ -153,6 +156,20 @@ struct PaywallView: View {
         }
         .task { await loadOfferings() }
         .onAppear { engagementStore.trackPaywallShown() }
+    }
+
+    // MARK: - Price Helpers
+
+    private func priceForPackageType(_ type: PackageType, fallback: String) -> String {
+        if let package = offerings.first(where: { $0.packageType == type }) {
+            return package.localizedPriceString
+        }
+        return fallback
+    }
+
+    private func introductoryPriceForPackageType(_ type: PackageType) -> String? {
+        guard let package = offerings.first(where: { $0.packageType == type }) else { return nil }
+        return package.localizedIntroductoryPriceString
     }
 
     // MARK: - Actions
@@ -228,6 +245,7 @@ private struct FeatureRow: View {
 private struct PricingCard: View {
     let title: String
     let price: String
+    var introPrice: String?
     let period: String
     let isSelected: Bool
     let badge: String?
@@ -257,9 +275,17 @@ private struct PricingCard: View {
 
                 Spacer()
 
-                Text(price)
-                    .font(.title3.bold())
-                    .foregroundStyle(isSelected ? Color.ownlyPrimary : Color.ownlyTextPrimary)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(price)
+                        .font(.title3.bold())
+                        .foregroundStyle(isSelected ? Color.ownlyPrimary : Color.ownlyTextPrimary)
+
+                    if let introPrice {
+                        Text(introPrice)
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    }
+                }
             }
             .padding(16)
             .background(isSelected ? Color.ownlyPrimary.opacity(0.08) : Color.ownlySecondaryBackground)

@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct AssetDetailView: View {
     @StateObject private var viewModel: AssetDetailViewModel
@@ -6,6 +7,8 @@ struct AssetDetailView: View {
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
     @Environment(\.dismiss) private var dismiss
     @State private var showingEdit = false
+    @State private var coverPhotoItem: PhotosPickerItem?
+    @State private var isUploadingCover = false
 
     init(asset: Asset) {
         _viewModel = StateObject(wrappedValue: AssetDetailViewModel(asset: asset))
@@ -90,6 +93,59 @@ struct AssetDetailView: View {
         .frame(height: 200)
         .frame(maxWidth: .infinity)
         .clipped()
+        .overlay(alignment: .bottomTrailing) {
+            PhotosPicker(selection: $coverPhotoItem, matching: .images) {
+                Group {
+                    if isUploadingCover {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Label(String(localized: "asset.change_photo"), systemImage: "camera.fill")
+                    }
+                }
+                .font(.caption.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(.ultraThinMaterial.opacity(0.8))
+                .background(Color.black.opacity(0.4))
+                .clipShape(Capsule())
+            }
+            .disabled(isUploadingCover)
+            .padding(12)
+        }
+        .onChange(of: coverPhotoItem) { _, newItem in
+            guard let newItem else { return }
+            Task { await uploadCoverPhoto(item: newItem) }
+        }
+    }
+
+    private func uploadCoverPhoto(item: PhotosPickerItem) async {
+        isUploadingCover = true
+        defer {
+            isUploadingCover = false
+            coverPhotoItem = nil
+        }
+
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self),
+                  let uiImage = UIImage(data: data) else { return }
+
+            let mediaItem = try await MediaRepository.shared.uploadPhoto(
+                image: uiImage,
+                assetId: viewModel.asset.id,
+                userId: viewModel.asset.userId,
+                type: .photo,
+                caption: "Cover Photo"
+            )
+
+            var updatedAsset = viewModel.asset
+            updatedAsset.coverImageUrl = mediaItem.url
+            try await AssetRepository.shared.update(updatedAsset)
+            viewModel.asset = updatedAsset
+        } catch {
+            print("Cover photo upload failed: \(error)")
+        }
     }
 
     private var iconPlaceholder: some View {
@@ -113,7 +169,7 @@ struct AssetDetailView: View {
             if let value = viewModel.effectiveValueCents {
                 ValueCard(
                     title: String(localized: "asset.current_value"),
-                    value: value.formattedCurrency(code: viewModel.asset.currency),
+                    value: settingsStore.formatCurrency(value, code: viewModel.asset.currency),
                     color: .ownlyPrimary
                 )
             }
@@ -121,15 +177,16 @@ struct AssetDetailView: View {
             if let purchase = viewModel.asset.purchasePriceCents {
                 ValueCard(
                     title: String(localized: "asset.purchase_price"),
-                    value: purchase.formattedCurrency(code: viewModel.asset.currency),
+                    value: settingsStore.formatCurrency(purchase, code: viewModel.asset.currency),
                     color: .secondary
                 )
             }
 
             if let livePrice = viewModel.livePrice {
+                let liveCents = Int(livePrice.pricePerUnit * 100)
                 ValueCard(
                     title: String(localized: "asset.live_price"),
-                    value: String(format: "%.2f %@", livePrice.pricePerUnit, livePrice.currency),
+                    value: settingsStore.formatCurrency(liveCents, code: livePrice.currency),
                     change: livePrice.changePercent24h,
                     color: .green
                 )
@@ -156,7 +213,7 @@ struct AssetDetailView: View {
                 title: String(localized: "tab.maintenance"),
                 count: viewModel.maintenance.count,
                 subtitle: viewModel.totalMaintenanceCost > 0
-                    ? viewModel.totalMaintenanceCost.formattedCurrency(code: viewModel.asset.currency)
+                    ? settingsStore.formatCurrency(viewModel.totalMaintenanceCost, code: viewModel.asset.currency)
                     : nil
             ) {
                 MaintenanceListView(assetId: viewModel.asset.id, currency: viewModel.asset.currency)

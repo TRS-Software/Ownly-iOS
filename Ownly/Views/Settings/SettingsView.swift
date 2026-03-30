@@ -79,10 +79,13 @@ struct SettingsView: View {
 
     // MARK: - Localization
 
+    @State private var selectedLocale: String = ""
+    @State private var showLanguageRestart = false
+
     private var localizationSection: some View {
         Section {
             // Language
-            Picker(selection: $settingsStore.locale) {
+            Picker(selection: $selectedLocale) {
                 ForEach(SupportedLocale.all) { locale in
                     HStack(spacing: 8) {
                         Text(locale.flag)
@@ -93,8 +96,19 @@ struct SettingsView: View {
             } label: {
                 Label(String(localized: "settings.language"), systemImage: "globe")
             }
+            .onAppear { selectedLocale = settingsStore.locale }
+            .onChange(of: selectedLocale) { _, newLocale in
+                guard newLocale != settingsStore.locale else { return }
+                settingsStore.applyLocaleChange(newLocale)
+                showLanguageRestart = true
+            }
+            .alert(String(localized: "settings.language_changed"), isPresented: $showLanguageRestart) {
+                Button(String(localized: "ok")) {}
+            } message: {
+                Text(String(localized: "settings.language_restart_hint"))
+            }
 
-            // Currency
+            // Currency — with preview of format
             Picker(selection: $settingsStore.currency) {
                 ForEach(SupportedCurrency.all) { currency in
                     HStack(spacing: 8) {
@@ -106,6 +120,17 @@ struct SettingsView: View {
                 }
             } label: {
                 Label(String(localized: "settings.currency"), systemImage: "banknote.fill")
+            }
+
+            // Currency format preview
+            HStack {
+                Text(String(localized: "settings.currency_preview"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(settingsStore.formatCurrency(123456))
+                    .font(.caption.bold())
+                    .foregroundStyle(Color.ownlyPrimary)
             }
         } header: {
             Text(String(localized: "settings.localization"))

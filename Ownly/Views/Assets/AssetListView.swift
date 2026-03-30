@@ -51,7 +51,7 @@ struct AssetListView: View {
                         LazyVGrid(columns: gridColumns, spacing: 12) {
                             ForEach(viewModel.filteredAssets) { asset in
                                 NavigationLink(value: asset) {
-                                    AssetGridCard(asset: asset, currency: settingsStore.currency)
+                                    AssetGridCard(asset: asset, settings: settingsStore)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -61,7 +61,7 @@ struct AssetListView: View {
                         LazyVStack(spacing: 8) {
                             ForEach(viewModel.filteredAssets) { asset in
                                 NavigationLink(value: asset) {
-                                    AssetListRow(asset: asset, currency: settingsStore.currency)
+                                    AssetListRow(asset: asset, settings: settingsStore)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -137,7 +137,7 @@ struct AssetListView: View {
 
 struct AssetGridCard: View {
     let asset: Asset
-    let currency: String
+    let settings: SettingsStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -186,9 +186,11 @@ struct AssetGridCard: View {
                 }
 
                 if let value = asset.displayValueCents {
-                    Text(value.formattedCurrency(code: asset.currency))
+                    Text(settings.formatCurrency(value, code: asset.currency))
                         .font(.footnote.bold())
                         .foregroundStyle(Color.ownlyPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
             }
         }
@@ -209,7 +211,7 @@ struct AssetGridCard: View {
 
 struct AssetListRow: View {
     let asset: Asset
-    let currency: String
+    let settings: SettingsStore
 
     var body: some View {
         HStack(spacing: 14) {
@@ -236,9 +238,11 @@ struct AssetListRow: View {
             Spacer()
 
             if let value = asset.displayValueCents {
-                Text(value.formattedCurrency(code: asset.currency))
+                Text(settings.formatCurrency(value, code: asset.currency))
                     .font(.subheadline.bold())
                     .foregroundStyle(Color.ownlyPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
 
             Image(systemName: "chevron.right")

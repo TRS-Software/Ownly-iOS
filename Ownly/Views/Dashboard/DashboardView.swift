@@ -5,6 +5,7 @@ struct DashboardView: View {
     @EnvironmentObject private var settingsStore: SettingsStore
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
     @EnvironmentObject private var appState: AppState
+    @State private var showingNewAsset = false
 
     var body: some View {
         ScrollView {
@@ -13,7 +14,7 @@ struct DashboardView: View {
                 PortfolioSummaryCard(
                     valueCents: viewModel.portfolioValueCents,
                     assetCount: viewModel.assetCount,
-                    currency: settingsStore.currency,
+                    settings: settingsStore,
                     change24h: viewModel.portfolioChange24h
                 )
                 .padding(.horizontal)
@@ -25,7 +26,7 @@ struct DashboardView: View {
                 }
 
                 // Quick Actions
-                QuickActionsView()
+                QuickActionsView(showingNewAsset: $showingNewAsset)
                     .padding(.horizontal)
 
                 // Top Assets
@@ -39,7 +40,7 @@ struct DashboardView: View {
                                         asset: asset,
                                         effectiveValue: viewModel.effectiveValue(for: asset),
                                         priceChange: viewModel.priceChange(for: asset),
-                                        currency: settingsStore.currency
+                                        settings: settingsStore
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -53,7 +54,7 @@ struct DashboardView: View {
                 if !viewModel.upcomingMaintenance.isEmpty {
                     SectionHeader(title: String(localized: "dashboard.upcoming_maintenance"))
                     ForEach(viewModel.upcomingMaintenance) { record in
-                        UpcomingMaintenanceRow(record: record, currency: settingsStore.currency)
+                        UpcomingMaintenanceRow(record: record, settings: settingsStore)
                     }
                     .padding(.horizontal)
                 }
@@ -62,7 +63,7 @@ struct DashboardView: View {
                 if !viewModel.recentActivity.isEmpty {
                     SectionHeader(title: String(localized: "dashboard.recent_activity"))
                     ForEach(viewModel.recentActivity) { entry in
-                        RecentActivityRow(entry: entry)
+                        RecentActivityRow(entry: entry, settings: settingsStore)
                     }
                     .padding(.horizontal)
                 }
@@ -75,6 +76,11 @@ struct DashboardView: View {
         .navigationTitle(String(localized: "dashboard.title"))
         .navigationDestination(for: Asset.self) { asset in
             AssetDetailView(asset: asset)
+        }
+        .sheet(isPresented: $showingNewAsset) {
+            NavigationStack {
+                AssetFormView()
+            }
         }
         .refreshable {
             await viewModel.load()
@@ -90,7 +96,7 @@ struct DashboardView: View {
 struct PortfolioSummaryCard: View {
     let valueCents: Int
     let assetCount: Int
-    let currency: String
+    let settings: SettingsStore
     let change24h: Double?
 
     var body: some View {
@@ -99,9 +105,11 @@ struct PortfolioSummaryCard: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text(valueCents.formattedCurrency(code: currency))
+            Text(settings.formatCurrency(valueCents))
                 .font(.system(size: 34, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.ownlyTextPrimary)
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
 
             HStack(spacing: 16) {
                 Label("\(assetCount) \(String(localized: "dashboard.assets"))",
@@ -130,6 +138,7 @@ struct PortfolioSummaryCard: View {
 
 struct QuickActionsView: View {
     @EnvironmentObject private var appState: AppState
+    @Binding var showingNewAsset: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -138,7 +147,7 @@ struct QuickActionsView: View {
                 title: String(localized: "action.new_asset"),
                 color: .blue
             ) {
-                // Navigate to new asset
+                showingNewAsset = true
             }
 
             QuickActionButton(
@@ -177,6 +186,7 @@ struct QuickActionButton: View {
                     .font(.caption2)
                     .foregroundStyle(Color.ownlyTextSecondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
@@ -191,7 +201,7 @@ struct MiniAssetCard: View {
     let asset: Asset
     let effectiveValue: Int?
     let priceChange: Double?
-    let currency: String
+    let settings: SettingsStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -212,18 +222,22 @@ struct MiniAssetCard: View {
             Text(asset.name)
                 .font(.subheadline.bold())
                 .lineLimit(1)
+                .truncationMode(.tail)
 
             if let subtitle = asset.subtitle {
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .truncationMode(.tail)
             }
 
             if let value = effectiveValue {
-                Text(value.formattedCurrency(code: currency))
+                Text(settings.formatCurrency(value, code: asset.currency))
                     .font(.footnote.bold())
                     .foregroundStyle(Color.ownlyPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
         }
         .frame(width: 160)
@@ -233,7 +247,7 @@ struct MiniAssetCard: View {
 
 struct UpcomingMaintenanceRow: View {
     let record: MaintenanceRecord
-    let currency: String
+    let settings: SettingsStore
 
     var body: some View {
         HStack(spacing: 12) {
@@ -248,9 +262,10 @@ struct UpcomingMaintenanceRow: View {
                 Text(record.title)
                     .font(.subheadline.bold())
                     .lineLimit(1)
+                    .truncationMode(.tail)
 
                 if let dueDate = record.nextDueDate {
-                    Text(dueDate.formatted(date: .abbreviated, time: .omitted))
+                    Text(settings.formatDate(dueDate))
                         .font(.caption)
                         .foregroundStyle(record.isDueSoon ? .orange : .secondary)
                 }
@@ -259,7 +274,7 @@ struct UpcomingMaintenanceRow: View {
             Spacer()
 
             if let cost = record.costCents {
-                Text(cost.formattedCurrency(code: currency))
+                Text(settings.formatCurrency(cost, code: record.currency))
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
             }
@@ -270,6 +285,7 @@ struct UpcomingMaintenanceRow: View {
 
 struct RecentActivityRow: View {
     let entry: TimelineEntry
+    let settings: SettingsStore
 
     var body: some View {
         HStack(spacing: 12) {
@@ -284,6 +300,7 @@ struct RecentActivityRow: View {
                 Text(entry.title)
                     .font(.subheadline)
                     .lineLimit(1)
+                    .truncationMode(.tail)
                 Text(entry.occurredAt.relativeFormatted())
                     .font(.caption)
                     .foregroundStyle(.secondary)

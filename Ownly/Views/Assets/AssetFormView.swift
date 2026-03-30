@@ -191,47 +191,33 @@ struct DynamicFormField: View {
     let field: AssetFormField
     @Binding var value: String
 
+    private var localizedLabel: String {
+        let base = String(localized: LocalizedStringResource(stringLiteral: field.label))
+        return field.isRequired ? "\(base) *" : base
+    }
+
     var body: some View {
         switch field {
         case .text:
-            TextField(
-                String(localized: LocalizedStringResource(stringLiteral: field.label)),
-                text: $value
-            )
+            TextField(localizedLabel, text: $value)
         case .number:
-            TextField(
-                String(localized: LocalizedStringResource(stringLiteral: field.label)),
-                text: $value
-            )
-            .keyboardType(.numberPad)
+            TextField(localizedLabel, text: $value)
+                .keyboardType(.numberPad)
         case .decimal:
-            TextField(
-                String(localized: LocalizedStringResource(stringLiteral: field.label)),
-                text: $value
-            )
-            .keyboardType(.decimalPad)
+            TextField(localizedLabel, text: $value)
+                .keyboardType(.decimalPad)
         case .currency:
-            TextField(
-                String(localized: LocalizedStringResource(stringLiteral: field.label)),
-                text: $value
-            )
-            .keyboardType(.decimalPad)
+            TextField(localizedLabel, text: $value)
+                .keyboardType(.decimalPad)
         case .picker(_, _, let options, _):
-            Picker(
-                String(localized: LocalizedStringResource(stringLiteral: field.label)),
-                selection: $value
-            ) {
+            Picker(localizedLabel, selection: $value) {
                 Text(String(localized: "select")).tag("")
                 ForEach(options, id: \.self) { option in
                     Text(option).tag(option)
                 }
             }
         case .date:
-            // Would use DatePicker in production
-            TextField(
-                String(localized: LocalizedStringResource(stringLiteral: field.label)),
-                text: $value
-            )
+            TextField(localizedLabel, text: $value)
         }
     }
 }

@@ -25,7 +25,10 @@ struct OwnlyApp: App {
                 .environmentObject(onboardingStore)
                 .environmentObject(engagementStore)
                 .preferredColorScheme(settingsStore.resolvedColorScheme)
+                .environment(\.locale, Locale(identifier: settingsStore.locale))
                 .task {
+                    appState.registerShared()
+                    await subscriptionStore.checkAndRefreshStatus()
                     await authViewModel.observeAuthState()
                     engagementStore.incrementSessions()
                 }
