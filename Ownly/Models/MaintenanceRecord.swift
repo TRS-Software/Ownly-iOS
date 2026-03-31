@@ -61,7 +61,7 @@ enum MaintenanceType: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var displayName: String {
-        String(localized: LocalizedStringResource(stringLiteral: "maintenance_type.\(rawValue)"))
+        NSLocalizedString("maintenance_type.\(rawValue)", comment: "")
     }
 
     var color: Color {

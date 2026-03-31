@@ -56,11 +56,11 @@ struct OnboardingView: View {
                             .symbolEffect(.pulse, options: .repeating)
 
                         VStack(spacing: 12) {
-                            Text(String(localized: LocalizedStringResource(stringLiteral: page.titleKey)))
+                            Text(NSLocalizedString(page.titleKey, comment: ""))
                                 .font(.title.bold())
                                 .multilineTextAlignment(.center)
 
-                            Text(String(localized: LocalizedStringResource(stringLiteral: page.descriptionKey)))
+                            Text(NSLocalizedString(page.descriptionKey, comment: ""))
                                 .font(.body)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)

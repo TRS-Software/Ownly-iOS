@@ -54,7 +54,7 @@ enum DocumentCategory: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var displayName: String {
-        String(localized: LocalizedStringResource(stringLiteral: "doc_category.\(rawValue)"))
+        NSLocalizedString("doc_category.\(rawValue)", comment: "")
     }
 
     var icon: String {

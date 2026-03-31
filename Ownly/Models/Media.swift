@@ -47,7 +47,7 @@ enum MediaType: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var displayName: String {
-        String(localized: LocalizedStringResource(stringLiteral: "media_type.\(rawValue)"))
+        NSLocalizedString("media_type.\(rawValue)", comment: "")
     }
 
     var icon: String {

@@ -16,10 +16,10 @@ enum SupabaseSecurityError: LocalizedError {
         case .ownershipMismatch:
             return String(localized: "error.ownership_mismatch", defaultValue: "You do not have permission to modify this resource.")
         case .invalidFileType(let ext):
-            return String(localized: "error.invalid_file_type \(ext)", defaultValue: "File type '\(ext)' is not allowed. Allowed: jpg, png, pdf, webp.")
+            return "File type '\(ext)' is not allowed. Allowed: jpg, png, pdf, webp."
         case .fileTooLarge(let bytes):
             let mb = bytes / (1024 * 1024)
-            return String(localized: "error.file_too_large \(mb)", defaultValue: "File is too large (\(mb) MB). Maximum allowed: 10 MB.")
+            return "File is too large (\(mb) MB). Maximum allowed: 10 MB."
         }
     }
 }
@@ -51,9 +51,12 @@ final class SupabaseService {
         let url = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String ?? ""
         let key = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String ?? ""
 
+        // Use placeholder URL when not configured to prevent crash during development
+        let supabaseURL = URL(string: url.isEmpty ? "https://placeholder.supabase.co" : url)!
+
         client = SupabaseClient(
-            supabaseURL: URL(string: url)!,
-            supabaseKey: key
+            supabaseURL: supabaseURL,
+            supabaseKey: key.isEmpty ? "placeholder-key" : key
         )
     }
 
@@ -89,15 +92,13 @@ final class SupabaseService {
             query = query.eq(filter.column, value: filter.value)
         }
 
-        if let orderBy {
-            query = query.order(orderBy, ascending: ascending)
-        }
+        var transformed = query.order(orderBy ?? "created_at", ascending: ascending)
 
         if let limit {
-            query = query.limit(limit)
+            transformed = transformed.limit(limit)
         }
 
-        return try await query.execute().value
+        return try await transformed.execute().value
     }
 
     func fetchSingle<T: Decodable>(from table: String, id: UUID) async throws -> T {

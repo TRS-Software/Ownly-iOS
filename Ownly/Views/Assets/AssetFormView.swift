@@ -195,7 +195,7 @@ struct DynamicFormField: View {
     @Binding var value: String
 
     private var localizedLabel: String {
-        let base = String(localized: LocalizedStringResource(stringLiteral: field.label))
+        let base = NSLocalizedString(field.label, comment: "")
         return field.isRequired ? "\(base) *" : base
     }
 

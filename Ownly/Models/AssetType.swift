@@ -20,7 +20,7 @@ enum AssetType: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var displayName: String {
-        String(localized: LocalizedStringResource(stringLiteral: "asset_type.\(rawValue)"))
+        NSLocalizedString("asset_type.\(rawValue)", comment: "")
     }
 
     var icon: String {

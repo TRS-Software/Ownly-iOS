@@ -15,10 +15,14 @@ final class AuthViewModel: ObservableObject {
         // Check existing session first
         if let session = try? await auth.getCurrentSession() {
             AppState.shared?.authState = .authenticated(userId: session.user.id.uuidString)
-            return
+        } else {
+            // No valid session — show login screen immediately
+            withAnimation {
+                AppState.shared?.authState = .unauthenticated
+            }
         }
 
-        // Listen for changes
+        // Listen for future changes
         for await (event, session) in auth.observeAuthChanges() {
             switch event {
             case .signedIn:

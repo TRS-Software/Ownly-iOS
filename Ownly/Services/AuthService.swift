@@ -6,6 +6,8 @@ final class AuthService {
     static let shared = AuthService()
     private let supabase = SupabaseService.shared
 
+    private static let redirectURL = URL(string: "com.ownly.app://auth/callback")!
+
     private init() {}
 
     // MARK: - Email Auth
@@ -25,9 +27,11 @@ final class AuthService {
     // MARK: - OAuth
 
     func signInWithGoogle() async throws {
-        try await supabase.client.auth.signInWithOAuth(provider: .google) { url in
-            await UIApplication.shared.open(url)
-        }
+        try await supabase.client.auth.signInWithOAuth(
+            provider: .google,
+            redirectTo: Self.redirectURL,
+            configure: { _ in }
+        )
     }
 
     func signInWithApple(credential: ASAuthorizationAppleIDCredential) async throws {

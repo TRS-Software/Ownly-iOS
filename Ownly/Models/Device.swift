@@ -69,7 +69,7 @@ enum DeviceStatus: String, Codable, CaseIterable {
     case defective
 
     var displayName: String {
-        String(localized: LocalizedStringResource(stringLiteral: "device_status.\(rawValue)"))
+        NSLocalizedString("device_status.\(rawValue)", comment: "")
     }
 
     var color: Color {
@@ -116,7 +116,7 @@ enum DeviceCategory: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var displayName: String {
-        String(localized: LocalizedStringResource(stringLiteral: "device_category.\(rawValue)"))
+        NSLocalizedString("device_category.\(rawValue)", comment: "")
     }
 
     var icon: String {
